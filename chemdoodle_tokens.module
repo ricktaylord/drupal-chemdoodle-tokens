@@ -1,0 +1,62 @@
+<?php
+function chemdoodle_tokens_token_info() {
+	$info['types']['chemdoodle'] = array(
+		'name' => t('Chemdoodle'),
+		'title' => t('Chemdoodle visualisation'),
+		'description' => t('Tokens relating to Chemdoodle web tools')
+	);
+	$info['tokens']['chemdoodle']['show'] = array(
+	        'name'=>t('Chemdoodle'),
+	        'description'=>t('2D/3D visualisation of molecule file'),
+	        'dynamic'=>TRUE
+	        );
+
+	return $info;
+}
+function chemdoodle_tokens_tokens($type,$tokens, array $data=array(), array $options=array()) {
+	$replacements = array();
+	$sanitize = !empty($options['sanitize']);
+	if ($type=='chemdoodle') {
+		if($show_tokens = token_find_with_prefix($tokens, 'show')) {
+			foreach($show_tokens as $show=>$original) {
+				$params = explode(":",$show);
+				$eId = intval(array_shift($params));
+				$dims = array_shift($params);
+				$entity = entity_load_single("node",$eId);
+				$wrapper = entity_metadata_wrapper('node', NULL, array('bundle' => $entity->type));
+				$cb = function($item) 
+				{
+					if( isset($item['property info'])) {
+						$info = $item['property info'];
+						foreach($info as $k=>$v) {
+							if( isset($v['type']) && $v['type']=="file") {
+								return True;
+							}
+						}
+					}
+					return False;
+				};
+				$file_fields = array_filter($wrapper->getPropertyInfo(), $cb);			
+				foreach($file_fields as $name=>$props) {
+					$file_field = $entity->$name;
+					if (isset($file_field['und'][0]['fid']) && $fId = $file_field['und'][0]['fid']) {
+						$fl = file_load(intval($fId));
+						$fPath = file_create_url($fl->uri);
+						$fParts = explode(".", $fPath);
+						$fType = end($fParts);
+						watchdog("chemdoodle","Type: ".$fType);
+						$replacements[$original] = "<canvas  data-source=\"$fPath\" data-render-style=\"$dims\" data-type=\"$fType\" class=\"chemdoodle\"></canvas>";
+					}
+				}				
+			}
+		}
+	}
+	if ( !empty($replacements) ) {
+		drupal_add_css(drupal_get_path('module', 'chemdoodle_tokens') . '/ChemDoodleWeb.css');
+		drupal_add_js(drupal_get_path('module', 'chemdoodle_tokens') . '/ChemDoodleWeb.js');
+		drupal_add_js(drupal_get_path('module', 'chemdoodle_tokens') . '/render_chemdoodle.js');
+	}
+	watchdog("chemdoodle",var_export($replacements,TRUE));
+	return $replacements;
+}
+?>

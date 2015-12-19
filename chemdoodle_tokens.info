@@ -1,0 +1,4 @@
+name = ChemDoodle tokens
+description = Tokens used to display ChemDoodle visualisations
+core = 7.x
+dependencies[] = token
